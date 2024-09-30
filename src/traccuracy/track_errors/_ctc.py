@@ -102,15 +102,25 @@ def get_edge_errors(matched_data: Matched):
         # Set to False by default
         graph.set_flag_on_all_edges(EdgeFlag.INTERTRACK_EDGE, False)
 
-        for parent in graph.get_divisions():
-            for daughter in graph.graph.successors(parent):
-                graph.set_flag_on_edge(
-                    (parent, daughter), EdgeFlag.INTERTRACK_EDGE, True
-                )
-
-        for merge in graph.get_merges():
-            for parent in graph.graph.predecessors(merge):
-                graph.set_flag_on_edge((parent, merge), EdgeFlag.INTERTRACK_EDGE, True)
+        for edge in graph.graph.edges:
+            source, target = edge[0], edge[1]
+            if graph.graph.out_degree(source) > 1:
+                graph.set_flag_on_edge(edge, EdgeFlag.INTERTRACK_EDGE, True)
+            if graph.graph.in_degree(target) > 1:
+                graph.set_flag_on_edge(edge, EdgeFlag.INTERTRACK_EDGE, True)
+            # when the gt_graph has different labels for source and target, that's an intertrack edge
+            # note this will break if the graph is not loaded using ctc loader...
+            if hasattr(graph, "label_key") and graph is gt_graph:
+                if (
+                    graph.graph.nodes[source][graph.label_key]
+                    != graph.graph.nodes[target][graph.label_key]
+                ):
+                    graph.set_flag_on_edge(edge, EdgeFlag.INTERTRACK_EDGE, True)
+            if (
+                graph.graph.nodes[source][graph.frame_key] + 1
+                != graph.graph.nodes[target][graph.frame_key]
+            ):
+                graph.set_flag_on_edge(edge, EdgeFlag.INTERTRACK_EDGE, True)
 
     # fp edges - edges in induced_graph that aren't in gt_graph
     for edge in tqdm(induced_graph.edges, "Evaluating FP edges"):
